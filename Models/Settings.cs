@@ -10,5 +10,7 @@ namespace EthernetChecker.Models
     {
         public string AdapterName { get; set; } = null!;
         public int RecurringSeconds { get; set; }
+        public string PingAddress { get; set; } = null!;
+        public int MaxPingOccurrences { get; set; }
     }
 }

@@ -11,9 +11,9 @@ namespace EthernetChecker
 {
     internal class Worker(ILogger<Worker> logger, Settings settings, Service service) : BackgroundService
     {
-        ILogger<Worker> _logger = logger;
-        Service _service = service;
-        Settings _settings = settings;
+        private readonly ILogger<Worker> _logger = logger;
+        private readonly Service _service = service;
+        private readonly Settings _settings = settings;
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
@@ -29,7 +29,7 @@ namespace EthernetChecker
                 }
                 finally
                 {
-                    await Task.Delay(_settings.RecurringSeconds * 1000);
+                    await Task.Delay(TimeSpan.FromSeconds(_settings.RecurringSeconds), stoppingToken);
                 }
             }
         }

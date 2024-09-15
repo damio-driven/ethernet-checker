@@ -13,18 +13,16 @@ namespace EthernetChecker
         private readonly ILogger<Service> _logger = logger;
         private readonly Settings _settings = settings;
         private DateTime _startTime = DateTime.Now;
+        private int _riavvii = 0;
 
         public async Task CheckEthernet()
         {
-            IPGlobalProperties computerProperties = IPGlobalProperties.GetIPGlobalProperties();
             NetworkInterface[] nics = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces();
 
             var adapter = nics.FirstOrDefault(x => x.Name == _settings.AdapterName);
 
             if (adapter != null)
             {
-                _logger.LogDebug("Interface information for {0}.{1}     ", computerProperties.HostName, computerProperties.DomainName);
-
                 IPInterfaceProperties properties = adapter.GetIPProperties();
                 _logger.LogDebug(adapter.Description);
                 _logger.LogDebug(string.Empty.PadLeft(adapter.Description.Length, '='));
@@ -37,16 +35,21 @@ namespace EthernetChecker
 
                 if (adapter.Speed == -1)
                 {
-                    _logger.LogWarning("Cavo disconnesso...");
+                    _logger.LogWarning("Cavo di rete disconnesso...");
                 }
-                else if (adapter.Speed < 1000)
+                else if (adapter.Speed < 1000000000 || !await ExecutePing())
                 {
+                    _riavvii++;
                     var tempoPassato = DateTime.Now - _startTime;
-                    _logger.LogWarning($"Tempo passato: {tempoPassato}. Riavvio scheda di rete");
+                    _logger.LogWarning($"Errore scheda di rete. Tempo passato: {tempoPassato}. Riavvio scheda di rete per la {_riavvii} volta.");
 
                     DisableAdapter(_settings.AdapterName);
-                    await Task.Delay(1000);
+                    await Task.Delay(TimeSpan.FromSeconds(5));
                     EnableAdapter(_settings.AdapterName);
+                    await Task.Delay(TimeSpan.FromSeconds(5));
+
+                    if (!await ExecutePing())
+                        throw new Exception("Errore nel riavviare la scheda di rete! Esito del ping negativo.");
 
                     _startTime = DateTime.Now;
                 }
@@ -73,6 +76,33 @@ namespace EthernetChecker
             p.StartInfo = psi;
             p.Start();
             p.WaitForExit();
+        }
+
+        async Task<bool> ExecutePing(int occurrence = 0)
+        {
+            occurrence++;
+
+            if(occurrence > _settings.MaxPingOccurrences)
+            {
+                _logger.LogError($"Impossibile raggiungere l'host {_settings.PingAddress} dopo {_settings.MaxPingOccurrences} tentativi.");
+                return false;
+            }
+
+            var ping = new Ping();
+
+            var pingReply = ping.Send(_settings.PingAddress);
+
+            if(pingReply.Status != IPStatus.Success)
+            {
+                _logger.LogWarning($"Ping verso l'host {_settings.PingAddress} non riuscito con esito {pingReply.Status}.");
+                await Task.Delay(TimeSpan.FromSeconds(1));
+                // Ritento
+                return await ExecutePing(occurrence);
+            }
+
+            _logger.LogTrace($"Ping positivo.");
+
+            return true;
         }
     }
 }
