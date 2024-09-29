@@ -94,8 +94,8 @@ namespace EthernetChecker
 
             if(pingReply.Status != IPStatus.Success)
             {
-                _logger.LogWarning($"Ping verso l'host {_settings.PingAddress} non riuscito con esito {pingReply.Status}.");
-                await Task.Delay(TimeSpan.FromSeconds(1));
+                _logger.LogWarning($"Ping verso l'host {_settings.PingAddress} non riuscito con esito {pingReply.Status}. ({occurrence})");
+                await Task.Delay(TimeSpan.FromSeconds(5));
                 // Ritento
                 return await ExecutePing(occurrence);
             }
